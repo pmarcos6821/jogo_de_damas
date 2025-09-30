@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Damas Retrô com IA Inteligente</title>
+  <style>
+    body {
+      background: #222;
+      color: #fff;
+      font-family: 'Courier New', monospace;
+      text-align: center;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 60px);
+      grid-template-rows: repeat(8, 60px);
+      margin: 20px auto;
+      border: 4px solid #fff;
+    }
+    .cell {
+      width: 60px;
+      height: 60px;
+      box-sizing: border-box;
+    }
+    .dark { background: #444; }
+    .light { background: #ccc; }
+    .piece {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin: 10px auto;
+      cursor: pointer;
+    }
+    .player { background: red; }
+    .ai { background: gold; }
+    .highlight {
+      outline: 3px solid lime;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Damas Retrô com IA Inteligente</h1>
+  <button onclick="startGame()">Iniciar Jogo</button>
+  <div id="board"></div>
+  <script>
+
+    const board = document.getElementById('board');
+    let selectedPiece = null;
+    let gameStarted = false;
+
+    function startGame() {
+      board.innerHTML = '';
+      gameStarted = true;
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell ' + ((row + col) % 2 === 0 ? 'light' : 'dark');
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+          board.appendChild(cell);
+
+          if ((row + col) % 2 !== 0) {
+            if (row < 3) addPiece(cell, 'ai');
+            else if (row > 4) addPiece(cell, 'player');
+          }
+        }
+      }
+    }
+
+    function addPiece(cell, type) {
+      const piece = document.createElement('div');
+      piece.className = 'piece ' + type;
+      piece.dataset.type = type;
+      piece.dataset.row = cell.dataset.row;
+      piece.dataset.col = cell.dataset.col;
+      piece.onclick = () => selectPiece(piece);
+      cell.appendChild(piece);
+    }
+
+    function selectPiece(piece) {
+      if (!gameStarted || piece.dataset.type !== 'player') return;
+      clearHighlights();
+      selectedPiece = piece;
+      const row = parseInt(piece.dataset.row);
+      const col = parseInt(piece.dataset.col);
+      const directions = [[-1, -1], [-1, 1]];
+      let captureAvailable = false;
+
+      directions.forEach(([dr, dc]) => {
+        const midR = row + dr;
+        const midC = col + dc;
+        const endR = row + dr * 2;
+        const endC = col + dc * 2;
+        const midCell = getCell(midR, midC);
+        const endCell = getCell(endR, endC);
+
+        if (midCell && endCell && midCell.children.length > 0 &&
+            midCell.children[0].dataset.type === 'ai' &&
+            endCell.children.length === 0) {
+          captureAvailable = true;
+          endCell.classList.add('highlight');
+          endCell.onclick = () => {
+            midCell.removeChild(midCell.children[0]);
+            movePiece(piece, endCell);
+          };
+        }
+      });
+
+      if (!captureAvailable) {
+        directions.forEach(([dr, dc]) => {
+          const r = row + dr;
+          const c = col + dc;
+          const cell = getCell(r, c);
+          if (cell && cell.children.length === 0) {
+            cell.classList.add('highlight');
+            cell.onclick = () => movePiece(piece, cell);
+          }
+        });
+      }
+    }
+
+    function movePiece(piece, targetCell) {
+      clearHighlights();
+      targetCell.appendChild(piece);
+      piece.dataset.row = targetCell.dataset.row;
+      piece.dataset.col = targetCell.dataset.col;
+
+      const row = parseInt(piece.dataset.row);
+      const col = parseInt(piece.dataset.col);
+      const directions = [[-1, -1], [-1, 1]];
+      let extraCapture = false;
+
+      directions.forEach(([dr, dc]) => {
+        const midR = row + dr;
+        const midC = col + dc;
+        const endR = row + dr * 2;
+        const endC = col + dc * 2;
+        const midCell = getCell(midR, midC);
+        const endCell = getCell(endR, endC);
+
+        if (midCell && endCell && midCell.children.length > 0 &&
+            midCell.children[0].dataset.type === 'ai' &&
+            endCell.children.length === 0) {
+          extraCapture = true;
+          endCell.classList.add('highlight');
+          endCell.onclick = () => {
+            midCell.removeChild(midCell.children[0]);
+            movePiece(piece, endCell); // chamada recursiva
+          };
+        }
+      });
+
+      if (!extraCapture) {
+        setTimeout(() => aiMove(2), 500);
+      }
+    }
+
+
+    function aiMove(depth) {
+  let best = getBestMove(depth);
+  if (!best) return;
+
+  function executeMove(move) {
+    const piece = move.piece;
+    const target = getCell(move.to[0], move.to[1]);
+    if (move.capture) {
+      const midCell = getCell(move.capture[0], move.capture[1]);
+      if (midCell && midCell.children.length > 0) {
+        midCell.removeChild(midCell.children[0]);
+      }
+    }
+    target.appendChild(piece);
+    piece.dataset.row = move.to[0];
+    piece.dataset.col = move.to[1];
+
+    // Verifica se há capturas adicionais
+    const row = move.to[0];
+    const col = move.to[1];
+    const directions = [[1, -1], [1, 1]];
+    for (const [dr, dc] of directions) {
+      const midR = row + dr;
+      const midC = col + dc;
+      const endR = row + dr * 2;
+      const endC = col + dc * 2;
+      const midCell = getCell(midR, midC);
+      const endCell = getCell(endR, endC);
+
+      if (midCell && endCell && midCell.children.length > 0 &&
+          midCell.children[0].dataset.type === 'player' &&
+          endCell.children.length === 0) {
+        // Captura adicional disponível
+        const nextMove = {
+          piece,
+          to: [endR, endC],
+          capture: [midR, midC]
+        };
+        setTimeout(() => executeMove(nextMove), 500);
+        return;
+      }
+    }
+  }
+
+  executeMove(best);
+}
+
+    function getBestMove(depth) {
+      const aiPieces = Array.from(document.querySelectorAll('.piece.ai'));
+      let bestScore = -Infinity;
+      let bestMove = null;
+
+      for (const piece of aiPieces) {
+        const row = parseInt(piece.dataset.row);
+        const col = parseInt(piece.dataset.col);
+        const directions = [[1, -1], [1, 1]];
+
+        for (const [dr, dc] of directions) {
+          const midR = row + dr;
+          const midC = col + dc;
+          const endR = row + dr * 2;
+          const endC = col + dc * 2;
+          const midCell = getCell(midR, midC);
+          const endCell = getCell(endR, endC);
+
+          if (midCell && endCell && midCell.children.length > 0 &&
+              midCell.children[0].dataset.type === 'player' &&
+              endCell.children.length === 0) {
+            const score = simulateMove(piece, [endR, endC], [midR, midC], depth - 1);
+            if (score > bestScore) {
+              bestScore = score;
+              bestMove = { piece, to: [endR, endC], capture: [midR, midC] };
+            }
+          } else {
+            const cell = getCell(row + dr, col + dc);
+            if (cell && cell.children.length === 0) {
+              const score = simulateMove(piece, [row + dr, col + dc], null, depth - 1);
+              if (score > bestScore) {
+                bestScore = score;
+                bestMove = { piece, to: [row + dr, col + dc], capture: null };
+              }
+            }
+          }
+        }
+      }
+
+      return bestMove;
+    }
+
+    function simulateMove(piece, to, capture, depth) {
+      const cloneBoard = cloneCurrentBoard();
+      const r = parseInt(piece.dataset.row);
+      const c = parseInt(piece.dataset.col);
+      cloneBoard[r][c] = null;
+      if (capture) cloneBoard[capture[0]][capture[1]] = null;
+      cloneBoard[to[0]][to[1]] = 'ai';
+      return minimax(cloneBoard, depth, false);
+    }
+
+    function minimax(board, depth, isMaximizing) {
+      if (depth === 0) return evaluateBoard(board);
+      const allMoves = getAllMoves(board, 'ai');
+      const captureMoves = allMoves.filter(m => m.capture);
+      const moves = captureMoves.length > 0 ? captureMoves : allMoves;
+      let bestScore = isMaximizing ? -Infinity : Infinity;
+
+      for (const move of moves) {
+        const newBoard = JSON.parse(JSON.stringify(board));
+        newBoard[move.from[0]][move.from[1]] = null;
+        if (move.capture) newBoard[move.capture[0]][move.capture[1]] = null;
+        newBoard[move.to[0]][move.to[1]] = move.type;
+        const score = minimax(newBoard, depth - 1, !isMaximizing);
+        bestScore = isMaximizing
+          ? Math.max(score, bestScore)
+          : Math.min(score, bestScore);
+      }
+
+      return bestScore;
+    }
+
+    function getAllMoves(board, type) {
+      const moves = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (board[r][c] === type) {
+            const directions = type === 'ai' ? [[1, -1], [1, 1]] : [[-1, -1], [-1, 1]];
+            for (const [dr, dc] of directions) {
+              const midR = r + dr;
+              const midC = c + dc;
+                            const endR = r + dr * 2;
+              const endC = c + dc * 2;
+
+              // Captura
+              if (
+                midR >= 0 && midR < 8 && midC >= 0 && midC < 8 &&
+                endR >= 0 && endR < 8 && endC >= 0 && endC < 8 &&
+                board[midR][midC] &&
+                board[midR][midC] !== type &&
+                !board[endR][endC]
+              ) {
+                moves.push({
+                  from: [r, c],
+                  to: [endR, endC],
+                  capture: [midR, midC],
+                  type
+                });
+              }
+
+              // Movimento simples
+              else if (
+                midR >= 0 && midR < 8 && midC >= 0 && midC < 8 &&
+                !board[midR][midC]
+              ) {
+                moves.push({
+                  from: [r, c],
+                  to: [midR, midC],
+                  capture: null,
+                  type
+                });
+              }
+            }
+          }
+        }
+      }
+      return moves;
+    }
+
+    function evaluateBoard(board) {
+      let score = 0;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (board[r][c] === 'ai') score += 1;
+          if (board[r][c] === 'player') score -= 1;
+        }
+      }
+      return score;
+    }
+
+    function cloneCurrentBoard() {
+      const grid = Array.from({ length: 8 }, () => Array(8).fill(null));
+      document.querySelectorAll('.piece').forEach(piece => {
+        const r = parseInt(piece.dataset.row);
+        const c = parseInt(piece.dataset.col);
+        grid[r][c] = piece.dataset.type;
+      });
+      return grid;
+    }
+
+    function getCell(row, col) {
+      return document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+    }
+
+    function clearHighlights() {
+      document.querySelectorAll('.highlight').forEach(cell => {
+        cell.classList.remove('highlight');
+        cell.onclick = null;
+      });
+    }
+  </script>
+</body>
+</html>

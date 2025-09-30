@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Velha vs IA</title>
+    <style>
+        body {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .symbol-selection {
+            margin-bottom: 30px;
+        }
+
+        .symbol-selection h3 {
+            color: #555;
+            margin-bottom: 15px;
+        }
+
+        .symbol-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .symbol-btn {
+            background: #f8f9fa;
+            border: 3px solid #dee2e6;
+            border-radius: 15px;
+            padding: 15px 25px;
+            font-size: 1.5em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 80px;
+        }
+
+        .symbol-btn:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+
+        .symbol-btn.selected {
+            background: #007bff;
+            color: white;
+            border-color: #0056b3;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 30px 0;
+            max-width: 300px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            background: #f8f9fa;
+            border: 3px solid #dee2e6;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .cell:hover:not(.taken) {
+            background: #e9ecef;
+            transform: scale(1.05);
+        }
+
+        .cell.taken {
+            cursor: not-allowed;
+        }
+
+        .cell.x {
+            color: #dc3545;
+        }
+
+        .cell.o {
+            color: #007bff;
+        }
+
+        .game-status {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin: 20px 0;
+            min-height: 30px;
+            color: #333;
+        }
+
+        .reset-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .reset-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 15px;
+        }
+
+        .score-item {
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .score-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 480px) {
+            .game-container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .cell {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎮 Jogo da Velha</h1>
+        
+        <div class="symbol-selection" id="symbolSelection">
+            <h3>Escolha seu símbolo:</h3>
+            <div class="symbol-buttons">
+                <button class="symbol-btn" data-symbol="X">❌ X</button>
+                <button class="symbol-btn" data-symbol="O">⭕ O</button>
+            </div>
+        </div>
+
+        <div class="score-board hidden" id="scoreBoard">
+            <div class="score-item">
+                <div class="score-label">Você</div>
+                <div class="score-value" id="playerScore">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Empates</div>
+                <div class="score-value" id="tieScore">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">IA</div>
+                <div class="score-value" id="aiScore">0</div>
+            </div>
+        </div>
+
+        <div class="game-status" id="gameStatus">Escolha seu símbolo para começar</div>
+
+        <div class="game-board hidden" id="gameBoard">
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
+        </div>
+
+        <button class="reset-btn hidden" id="resetBtn">🔄 Nova Partida</button>
+    </div>
+
+    <script>
+        class TicTacToeGame {
+            constructor() {
+                this.board = Array(9).fill('');
+                this.playerSymbol = '';
+                this.aiSymbol = '';
+                this.currentPlayer = 'X';
+                this.gameActive = false;
+                this.scores = { player: 0, ai: 0, tie: 0 };
+                
+                this.initializeElements();
+                this.attachEventListeners();
+            }
+
+            initializeElements() {
+                this.symbolSelection = document.getElementById('symbolSelection');
+                this.gameBoard = document.getElementById('gameBoard');
+                this.gameStatus = document.getElementById('gameStatus');
+                this.resetBtn = document.getElementById('resetBtn');
+                this.scoreBoard = document.getElementById('scoreBoard');
+                this.cells = document.querySelectorAll('.cell');
+                this.symbolBtns = document.querySelectorAll('.symbol-btn');
+            }
+
+            attachEventListeners() {
+                this.symbolBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => this.selectSymbol(e.target.dataset.symbol));
+                });
+
+                this.cells.forEach(cell => {
+                    cell.addEventListener('click', (e) => this.makeMove(parseInt(e.target.dataset.index)));
+                });
+
+                this.resetBtn.addEventListener('click', () => this.resetGame());
+            }
+
+            selectSymbol(symbol) {
+                this.playerSymbol = symbol;
+                this.aiSymbol = symbol === 'X' ? 'O' : 'X';
+                this.currentPlayer = 'X';
+                
+                this.symbolBtns.forEach(btn => btn.classList.remove('selected'));
+                document.querySelector(`[data-symbol="${symbol}"]`).classList.add('selected');
+                
+                this.startGame();
+            }
+
+            startGame() {
+                this.symbolSelection.classList.add('hidden');
+                this.gameBoard.classList.remove('hidden');
+                this.resetBtn.classList.remove('hidden');
+                this.scoreBoard.classList.remove('hidden');
+                
+                this.gameActive = true;
+                this.updateStatus();
+                
+                // Se a IA começar (X), fazer primeira jogada
+                if (this.aiSymbol === 'X') {
+                    setTimeout(() => this.makeAIMove(), 500);
+                }
+            }
+
+            makeMove(index) {
+                if (!this.gameActive || this.board[index] !== '' || this.currentPlayer !== this.playerSymbol) {
+                    return;
+                }
+
+                this.board[index] = this.playerSymbol;
+                this.updateCell(index, this.playerSymbol);
+                
+                if (this.checkWinner()) {
+                    this.endGame();
+                    return;
+                }
+
+                if (this.isBoardFull()) {
+                    this.endGame();
+                    return;
+                }
+
+                this.currentPlayer = this.aiSymbol;
+                this.updateStatus();
+                
+                setTimeout(() => this.makeAIMove(), 500);
+            }
+
+            makeAIMove() {
+                if (!this.gameActive) return;
+
+                const bestMove = this.getBestMove();
+                this.board[bestMove] = this.aiSymbol;
+                this.updateCell(bestMove, this.aiSymbol);
+                
+                if (this.checkWinner()) {
+                    this.endGame();
+                    return;
+                }
+
+                if (this.isBoardFull()) {
+                    this.endGame();
+                    return;
+                }
+
+                this.currentPlayer = this.playerSymbol;
+                this.updateStatus();
+            }
+
+            getBestMove() {
+                // Algoritmo Minimax para IA inteligente
+                let bestScore = -Infinity;
+                let bestMove = 0;
+
+                for (let i = 0; i < 9; i++) {
+                    if (this.board[i] === '') {
+                        this.board[i] = this.aiSymbol;
+                        let score = this.minimax(this.board, 0, false);
+                        this.board[i] = '';
+                        
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMove = i;
+                        }
+                    }
+                }
+
+                return bestMove;
+            }
+
+            minimax(board, depth, isMaximizing) {
+                const winner = this.checkWinnerForBoard(board);
+                
+                if (winner === this.aiSymbol) return 10 - depth;
+                if (winner === this.playerSymbol) return depth - 10;
+                if (this.isBoardFullForBoard(board)) return 0;
+
+                if (isMaximizing) {
+                    let bestScore = -Infinity;
+                    for (let i = 0; i < 9; i++) {
+                        if (board[i] === '') {
+                            board[i] = this.aiSymbol;
+                            let score = this.minimax(board, depth + 1, false);
+                            board[i] = '';
+                            bestScore = Math.max(score, bestScore);
+                        }
+                    }
+                    return bestScore;
+                } else {
+                    let bestScore = Infinity;
+                    for (let i = 0; i < 9; i++) {
+                        if (board[i] === '') {
+                            board[i] = this.playerSymbol;
+                            let score = this.minimax(board, depth + 1, true);
+                            board[i] = '';
+                            bestScore = Math.min(score, bestScore);
+                        }
+                    }
+                    return bestScore;
+                }
+            }
+
+            updateCell(index, symbol) {
+                const cell = this.cells[index];
+                cell.textContent = symbol === 'X' ? '❌' : '⭕';
+                cell.classList.add('taken', symbol.toLowerCase());
+            }
+
+            checkWinner() {
+                return this.checkWinnerForBoard(this.board);
+            }
+
+            checkWinnerForBoard(board) {
+                const winPatterns = [
+                    [0, 1, 2], [3, 4, 5], [6, 7, 8], // linhas
+                    [0, 3, 6], [1, 4, 7], [2, 5, 8], // colunas
+                    [0, 4, 8], [2, 4, 6] // diagonais
+                ];
+
+                for (let pattern of winPatterns) {
+                    const [a, b, c] = pattern;
+                    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                        return board[a];
+                    }
+                }
+                return null;
+            }
+
+            isBoardFull() {
+                return this.isBoardFullForBoard(this.board);
+            }
+
+            isBoardFullForBoard(board) {
+                return board.every(cell => cell !== '');
+            }
+
+            endGame() {
+                this.gameActive = false;
+                const winner = this.checkWinner();
+                
+                if (winner === this.playerSymbol) {
+                    this.gameStatus.textContent = '🎉 Você ganhou!';
+                    this.scores.player++;
+                } else if (winner === this.aiSymbol) {
+                    this.gameStatus.textContent = '🤖 IA ganhou!';
+                    this.scores.ai++;
+                } else {
+                    this.gameStatus.textContent = '🤝 Empate!';
+                    this.scores.tie++;
+                }
+                
+                this.updateScoreBoard();
+            }
+
+            updateStatus() {
+                if (this.currentPlayer === this.playerSymbol) {
+                    this.gameStatus.textContent = 'Sua vez...';
+                } else {
+                    this.gameStatus.textContent = 'Minha vez...';
+                }
+            }
+
+            updateScoreBoard() {
+                document.getElementById('playerScore').textContent = this.scores.player;
+                document.getElementById('aiScore').textContent = this.scores.ai;
+                document.getElementById('tieScore').textContent = this.scores.tie;
+            }
+
+            resetGame() {
+                this.board = Array(9).fill('');
+                this.currentPlayer = 'X';
+                this.gameActive = true;
+                
+                this.cells.forEach(cell => {
+                    cell.textContent = '';
+                    cell.classList.remove('taken', 'x', 'o');
+                });
+                
+                this.updateStatus();
+                
+                // Se a IA começar (X), fazer primeira jogada
+                if (this.aiSymbol === 'X') {
+                    setTimeout(() => this.makeAIMove(), 500);
+                }
+            }
+        }
+
+        // Inicializar o jogo
+        const game = new TicTacToeGame();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98691e7de127da2d',t:'MTc1OTEyNDE0Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

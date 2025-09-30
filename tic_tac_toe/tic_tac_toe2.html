@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Jogo da Velha com IA</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background-color: #f0f0f0;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .cell {
+      width: 100px;
+      height: 100px;
+      background-color: white;
+      border: 2px solid #ccc;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cell svg {
+      width: 80px;
+      height: 80px;
+    }
+    select, button {
+      margin-top: 20px;
+      padding: 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Jogo da Velha 🐶 vs 🐱</h1>
+  <label for="playerSymbol">Escolha cachorro ou gato clicando na setinha:</label>
+  <select id="playerSymbol">
+    <option value="X">🐶 Cachorro</option>
+    <option value="Y">🐱 Gato</option>
+  </select>
+  <button onclick="startGame()">Iniciar Jogo</button>
+  <div class="board" id="board"></div>
+  <button onclick="resetBoard()">Reiniciar</button>
+
+    <script>
+    const svgDog = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="#d2b48c" /><circle cx="40" cy="45" r="5" fill="black" /><circle cx="60" cy="45" r="5" fill="black" /><ellipse cx="50" cy="60" rx="10" ry="5" fill="black" /><path d="M30 30 Q20 50 30 70" fill="#8b5a2b" /><path d="M70 30 Q80 50 70 70" fill="#8b5a2b" /></svg>`;
+    const svgCat = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="orange" /><circle cx="40" cy="45" r="5" fill="black" /><circle cx="60" cy="45" r="5" fill="black" /><path d="M45 60 Q50 65 55 60" stroke="black" fill="none" /><line x1="30" y1="50" x2="20" y2="45" stroke="black" /><line x1="30" y1="55" x2="20" y2="55" stroke="black" /><line x1="70" y1="50" x2="80" y2="45" stroke="black" /><line x1="70" y1="55" x2="80" y2="55" stroke="black" /></svg>`;
+
+    let boardState = Array(9).fill('');
+    let player = 'X';
+    let ai = 'Y';
+    let gameActive = false;
+
+    const board = document.getElementById('board');
+
+    function startGame() {
+      player = document.getElementById('playerSymbol').value;
+      ai = player === 'X' ? 'Y' : 'X';
+      gameActive = true;
+      resetBoard();
+      if (player === 'Y') aiMove(); // IA começa se jogador escolheu gato
+    }
+
+    function resetBoard() {
+      boardState = Array(9).fill('');
+      board.innerHTML = '';
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.dataset.index = i;
+        cell.addEventListener('click', () => playerMove(i));
+        board.appendChild(cell);
+      }
+    }
+
+    function renderBoard() {
+      boardState.forEach((symbol, i) => {
+        const cell = board.children[i];
+        cell.innerHTML = symbol === 'X' ? svgDog :
+                         symbol === 'Y' ? svgCat : '';
+      });
+    }
+
+        function playerMove(index) {
+      if (!gameActive || boardState[index] !== '') return;
+      boardState[index] = player;
+      renderBoard();
+      if (checkWin(player)) {
+        alert('Você venceu!');
+        gameActive = false;
+        return;
+      }
+      if (boardState.every(cell => cell !== '')) {
+        alert('Empate!');
+        gameActive = false;
+        return;
+      }
+      aiMove();
+    }
+
+    function aiMove() {
+      const best = minimax(boardState, ai).index;
+      boardState[best] = ai;
+      renderBoard();
+      if (checkWin(ai)) {
+        alert('Eu venci kkkk!');
+        gameActive = false;
+        return;
+      }
+      if (boardState.every(cell => cell !== '')) {
+        alert('Empatou!');
+        gameActive = false;
+      }
+    }
+
+    function checkWin(symbol) {
+      const wins = [
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6]
+      ];
+      return wins.some(line => line.every(i => boardState[i] === symbol));
+    }
+
+    function minimax(newBoard, currentPlayer) {
+      const availSpots = newBoard.map((v, i) => v === '' ? i : null).filter(i => i !== null);
+
+      if (checkWin(player)) return { score: -10 };
+      if (checkWin(ai)) return { score: 10 };
+      if (availSpots.length === 0) return { score: 0 };
+
+      const moves = [];
+
+      for (let i = 0; i < availSpots.length; i++) {
+        const move = {};
+        move.index = availSpots[i];
+        newBoard[availSpots[i]] = currentPlayer;
+
+        const result = minimax(newBoard, currentPlayer === ai ? player : ai);
+        move.score = result.score;
+
+        newBoard[availSpots[i]] = '';
+        moves.push(move);
+      }
+
+      let bestMove;
+      if (currentPlayer === ai) {
+        let bestScore = -Infinity;
+        for (let i = 0; i < moves.length; i++) {
+          if (moves[i].score > bestScore) {
+            bestScore = moves[i].score;
+            bestMove = i;
+          }
+        }
+      } else {
+        let bestScore = Infinity;
+        for (let i = 0; i < moves.length; i++) {
+          if (moves[i].score < bestScore) {
+            bestScore = moves[i].score;
+            bestMove = i;
+          }
+        }
+      }
+
+      return moves[bestMove];
+    }
+  </script>
+</body>
+</html>
