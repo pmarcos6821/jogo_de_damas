@@ -1,365 +1,263 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <title>Damas Retrô com IA Inteligente</title>
+  <meta charset="UTF-8" />
+  <title>Jogo de Damas</title>
   <style>
-    body {
-      background: #222;
-      color: #fff;
-      font-family: 'Courier New', monospace;
-      text-align: center;
-    }
     #board {
       display: grid;
       grid-template-columns: repeat(8, 60px);
       grid-template-rows: repeat(8, 60px);
-      margin: 20px auto;
-      border: 4px solid #fff;
+      width: 480px;
+      height: 480px;
+      border: 2px solid black;
     }
     .cell {
       width: 60px;
       height: 60px;
-      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .dark { background: #444; }
-    .light { background: #ccc; }
+    .black { background-color: #444; }
+    .white { background-color: #eee; }
     .piece {
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      margin: 10px auto;
       cursor: pointer;
     }
-    .player { background: red; }
-    .ai { background: gold; }
-    .highlight {
-      outline: 3px solid lime;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      margin-top: 10px;
-      cursor: pointer;
-    }
+    .white-piece { background-color: white; }
+    .black-piece { background-color: black; }
+    .highlight { outline: 2px solid yellow; }
   </style>
 </head>
 <body>
-  <h1>Damas Retrô com IA Inteligente</h1>
-  <button onclick="startGame()">Iniciar Jogo</button>
+  <h2>Jogo de Damas</h2>
   <div id="board"></div>
+
   <script>
-
-    const board = document.getElementById('board');
+    const board = document.getElementById("board");
     let selectedPiece = null;
-    let gameStarted = false;
+    let currentPlayer = "white";
+    let gameState = Array(8).fill(null).map(() => Array(8).fill(null));
 
-    function startGame() {
-      board.innerHTML = '';
-      gameStarted = true;
+    function createBoard() {
+      board.innerHTML = "";
       for (let row = 0; row < 8; row++) {
         for (let col = 0; col < 8; col++) {
-          const cell = document.createElement('div');
-          cell.className = 'cell ' + ((row + col) % 2 === 0 ? 'light' : 'dark');
+          const cell = document.createElement("div");
+          cell.classList.add("cell", (row + col) % 2 === 0 ? "white" : "black");
           cell.dataset.row = row;
           cell.dataset.col = col;
           board.appendChild(cell);
-
-          if ((row + col) % 2 !== 0) {
-            if (row < 3) addPiece(cell, 'ai');
-            else if (row > 4) addPiece(cell, 'player');
-          }
         }
       }
     }
 
-    function addPiece(cell, type) {
-      const piece = document.createElement('div');
-      piece.className = 'piece ' + type;
-      piece.dataset.type = type;
-      piece.dataset.row = cell.dataset.row;
-      piece.dataset.col = cell.dataset.col;
-      piece.onclick = () => selectPiece(piece);
+    function placePieces() {
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 8; col++) {
+          if ((row + col) % 2 !== 0) addPiece(row, col, "black");
+        }
+      }
+      for (let row = 5; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          if ((row + col) % 2 !== 0) addPiece(row, col, "white");
+        }
+      }
+    }
+
+    function addPiece(row, col, color) {
+      const cell = getCell(row, col);
+      const piece = document.createElement("div");
+      piece.classList.add("piece", `${color}-piece`);
+      piece.dataset.row = row;
+      piece.dataset.col = col;
+      piece.dataset.color = color;
       cell.appendChild(piece);
-    }
-
-    function selectPiece(piece) {
-      if (!gameStarted || piece.dataset.type !== 'player') return;
-      clearHighlights();
-      selectedPiece = piece;
-      const row = parseInt(piece.dataset.row);
-      const col = parseInt(piece.dataset.col);
-      const directions = [[-1, -1], [-1, 1]];
-      let captureAvailable = false;
-
-      directions.forEach(([dr, dc]) => {
-        const midR = row + dr;
-        const midC = col + dc;
-        const endR = row + dr * 2;
-        const endC = col + dc * 2;
-        const midCell = getCell(midR, midC);
-        const endCell = getCell(endR, endC);
-
-        if (midCell && endCell && midCell.children.length > 0 &&
-            midCell.children[0].dataset.type === 'ai' &&
-            endCell.children.length === 0) {
-          captureAvailable = true;
-          endCell.classList.add('highlight');
-          endCell.onclick = () => {
-            midCell.removeChild(midCell.children[0]);
-            movePiece(piece, endCell);
-          };
-        }
-      });
-
-      if (!captureAvailable) {
-        directions.forEach(([dr, dc]) => {
-          const r = row + dr;
-          const c = col + dc;
-          const cell = getCell(r, c);
-          if (cell && cell.children.length === 0) {
-            cell.classList.add('highlight');
-            cell.onclick = () => movePiece(piece, cell);
-          }
-        });
-      }
-    }
-
-    function movePiece(piece, targetCell) {
-      clearHighlights();
-      targetCell.appendChild(piece);
-      piece.dataset.row = targetCell.dataset.row;
-      piece.dataset.col = targetCell.dataset.col;
-
-      const row = parseInt(piece.dataset.row);
-      const col = parseInt(piece.dataset.col);
-      const directions = [[-1, -1], [-1, 1]];
-      let extraCapture = false;
-
-      directions.forEach(([dr, dc]) => {
-        const midR = row + dr;
-        const midC = col + dc;
-        const endR = row + dr * 2;
-        const endC = col + dc * 2;
-        const midCell = getCell(midR, midC);
-        const endCell = getCell(endR, endC);
-
-        if (midCell && endCell && midCell.children.length > 0 &&
-            midCell.children[0].dataset.type === 'ai' &&
-            endCell.children.length === 0) {
-          extraCapture = true;
-          endCell.classList.add('highlight');
-          endCell.onclick = () => {
-            midCell.removeChild(midCell.children[0]);
-            movePiece(piece, endCell); // chamada recursiva
-          };
-        }
-      });
-
-      if (!extraCapture) {
-        setTimeout(() => aiMove(2), 500);
-      }
-    }
-
-
-    function aiMove(depth) {
-  let best = getBestMove(depth);
-  if (!best) return;
-
-  function executeMove(move) {
-    const piece = move.piece;
-    const target = getCell(move.to[0], move.to[1]);
-    if (move.capture) {
-      const midCell = getCell(move.capture[0], move.capture[1]);
-      if (midCell && midCell.children.length > 0) {
-        midCell.removeChild(midCell.children[0]);
-      }
-    }
-    target.appendChild(piece);
-    piece.dataset.row = move.to[0];
-    piece.dataset.col = move.to[1];
-
-    // Verifica se há capturas adicionais
-    const row = move.to[0];
-    const col = move.to[1];
-    const directions = [[1, -1], [1, 1]];
-    for (const [dr, dc] of directions) {
-      const midR = row + dr;
-      const midC = col + dc;
-      const endR = row + dr * 2;
-      const endC = col + dc * 2;
-      const midCell = getCell(midR, midC);
-      const endCell = getCell(endR, endC);
-
-      if (midCell && endCell && midCell.children.length > 0 &&
-          midCell.children[0].dataset.type === 'player' &&
-          endCell.children.length === 0) {
-        // Captura adicional disponível
-        const nextMove = {
-          piece,
-          to: [endR, endC],
-          capture: [midR, midC]
-        };
-        setTimeout(() => executeMove(nextMove), 500);
-        return;
-      }
-    }
-  }
-
-  executeMove(best);
-}
-
-    function getBestMove(depth) {
-      const aiPieces = Array.from(document.querySelectorAll('.piece.ai'));
-      let bestScore = -Infinity;
-      let bestMove = null;
-
-      for (const piece of aiPieces) {
-        const row = parseInt(piece.dataset.row);
-        const col = parseInt(piece.dataset.col);
-        const directions = [[1, -1], [1, 1]];
-
-        for (const [dr, dc] of directions) {
-          const midR = row + dr;
-          const midC = col + dc;
-          const endR = row + dr * 2;
-          const endC = col + dc * 2;
-          const midCell = getCell(midR, midC);
-          const endCell = getCell(endR, endC);
-
-          if (midCell && endCell && midCell.children.length > 0 &&
-              midCell.children[0].dataset.type === 'player' &&
-              endCell.children.length === 0) {
-            const score = simulateMove(piece, [endR, endC], [midR, midC], depth - 1);
-            if (score > bestScore) {
-              bestScore = score;
-              bestMove = { piece, to: [endR, endC], capture: [midR, midC] };
-            }
-          } else {
-            const cell = getCell(row + dr, col + dc);
-            if (cell && cell.children.length === 0) {
-              const score = simulateMove(piece, [row + dr, col + dc], null, depth - 1);
-              if (score > bestScore) {
-                bestScore = score;
-                bestMove = { piece, to: [row + dr, col + dc], capture: null };
-              }
-            }
-          }
-        }
-      }
-
-      return bestMove;
-    }
-
-    function simulateMove(piece, to, capture, depth) {
-      const cloneBoard = cloneCurrentBoard();
-      const r = parseInt(piece.dataset.row);
-      const c = parseInt(piece.dataset.col);
-      cloneBoard[r][c] = null;
-      if (capture) cloneBoard[capture[0]][capture[1]] = null;
-      cloneBoard[to[0]][to[1]] = 'ai';
-      return minimax(cloneBoard, depth, false);
-    }
-
-    function minimax(board, depth, isMaximizing) {
-      if (depth === 0) return evaluateBoard(board);
-      const allMoves = getAllMoves(board, 'ai');
-      const captureMoves = allMoves.filter(m => m.capture);
-      const moves = captureMoves.length > 0 ? captureMoves : allMoves;
-      let bestScore = isMaximizing ? -Infinity : Infinity;
-
-      for (const move of moves) {
-        const newBoard = JSON.parse(JSON.stringify(board));
-        newBoard[move.from[0]][move.from[1]] = null;
-        if (move.capture) newBoard[move.capture[0]][move.capture[1]] = null;
-        newBoard[move.to[0]][move.to[1]] = move.type;
-        const score = minimax(newBoard, depth - 1, !isMaximizing);
-        bestScore = isMaximizing
-          ? Math.max(score, bestScore)
-          : Math.min(score, bestScore);
-      }
-
-      return bestScore;
-    }
-
-    function getAllMoves(board, type) {
-      const moves = [];
-      for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-          if (board[r][c] === type) {
-            const directions = type === 'ai' ? [[1, -1], [1, 1]] : [[-1, -1], [-1, 1]];
-            for (const [dr, dc] of directions) {
-              const midR = r + dr;
-              const midC = c + dc;
-                            const endR = r + dr * 2;
-              const endC = c + dc * 2;
-
-              // Captura
-              if (
-                midR >= 0 && midR < 8 && midC >= 0 && midC < 8 &&
-                endR >= 0 && endR < 8 && endC >= 0 && endC < 8 &&
-                board[midR][midC] &&
-                board[midR][midC] !== type &&
-                !board[endR][endC]
-              ) {
-                moves.push({
-                  from: [r, c],
-                  to: [endR, endC],
-                  capture: [midR, midC],
-                  type
-                });
-              }
-
-              // Movimento simples
-              else if (
-                midR >= 0 && midR < 8 && midC >= 0 && midC < 8 &&
-                !board[midR][midC]
-              ) {
-                moves.push({
-                  from: [r, c],
-                  to: [midR, midC],
-                  capture: null,
-                  type
-                });
-              }
-            }
-          }
-        }
-      }
-      return moves;
-    }
-
-    function evaluateBoard(board) {
-      let score = 0;
-      for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-          if (board[r][c] === 'ai') score += 1;
-          if (board[r][c] === 'player') score -= 1;
-        }
-      }
-      return score;
-    }
-
-    function cloneCurrentBoard() {
-      const grid = Array.from({ length: 8 }, () => Array(8).fill(null));
-      document.querySelectorAll('.piece').forEach(piece => {
-        const r = parseInt(piece.dataset.row);
-        const c = parseInt(piece.dataset.col);
-        grid[r][c] = piece.dataset.type;
-      });
-      return grid;
+      gameState[row][col] = color;
     }
 
     function getCell(row, col) {
-      return document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+      return board.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+    }
+
+    function getPiece(row, col) {
+      const cell = getCell(row, col);
+      return cell.querySelector(".piece");
+    }
+
+        function movePiece(piece, toRow, toCol) {
+      const fromRow = parseInt(piece.dataset.row);
+      const fromCol = parseInt(piece.dataset.col);
+      const capturedRow = (fromRow + toRow) / 2;
+      const capturedCol = (fromCol + toCol) / 2;
+
+      // Remove peça capturada se for um movimento de captura
+      if (Math.abs(toRow - fromRow) === 2) {
+        const capturedPiece = getPiece(capturedRow, capturedCol);
+        if (capturedPiece) capturedPiece.remove();
+        gameState[capturedRow][capturedCol] = null;
+      }
+
+      // Atualiza DOM e estado lógico
+      getCell(fromRow, fromCol).innerHTML = "";
+      getCell(toRow, toCol).appendChild(piece);
+      piece.dataset.row = toRow;
+      piece.dataset.col = toCol;
+
+      gameState[fromRow][fromCol] = null;
+      gameState[toRow][toCol] = piece.dataset.color;
+
+      // Verifica se há captura adicional
+      if (Math.abs(toRow - fromRow) === 2) {
+        const moreCaptures = getValidCaptures(toRow, toCol, piece.dataset.color);
+        if (moreCaptures.length > 0) {
+          highlightMoves(piece, moreCaptures);
+          selectedPiece = piece;
+          return;
+        }
+      }
+
+      selectedPiece = null;
+      currentPlayer = currentPlayer === "white" ? "black" : "white";
+      if (currentPlayer === "black") setTimeout(aiMove, 500);
+    }
+
+    function getValidMoves(row, col, color) {
+      const directions = color === "white" ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]];
+      const moves = [];
+
+      directions.forEach(([dx, dy]) => {
+        const newRow = row + dx;
+        const newCol = col + dy;
+        if (isInBounds(newRow, newCol) && !gameState[newRow][newCol]) {
+          moves.push([newRow, newCol]);
+        }
+      });
+
+      return moves;
+    }
+
+    function getValidCaptures(row, col, color) {
+      const directions = color === "white" ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]];
+      const captures = [];
+
+      directions.forEach(([dx, dy]) => {
+        const midRow = row + dx;
+        const midCol = col + dy;
+        const newRow = row + 2 * dx;
+        const newCol = col + 2 * dy;
+
+        if (
+          isInBounds(newRow, newCol) &&
+          gameState[midRow][midCol] &&
+          gameState[midRow][midCol] !== color &&
+          !gameState[newRow][newCol]
+        ) {
+          captures.push([newRow, newCol]);
+        }
+      });
+
+      return captures;
+    }
+
+    function isInBounds(row, col) {
+      return row >= 0 && row < 8 && col >= 0 && col < 8;
+    }
+
+    function highlightMoves(piece, moves) {
+      clearHighlights();
+      moves.forEach(([row, col]) => {
+        const cell = getCell(row, col);
+        cell.classList.add("highlight");
+        cell.onclick = () => movePiece(piece, row, col);
+      });
     }
 
     function clearHighlights() {
-      document.querySelectorAll('.highlight').forEach(cell => {
-        cell.classList.remove('highlight');
+      document.querySelectorAll(".highlight").forEach(cell => {
+        cell.classList.remove("highlight");
         cell.onclick = null;
       });
     }
+
+    board.addEventListener("click", e => {
+      const piece = e.target.closest(".piece");
+      if (!piece || piece.dataset.color !== currentPlayer) return;
+
+      const row = parseInt(piece.dataset.row);
+      const col = parseInt(piece.dataset.col);
+      const captures = getValidCaptures(row, col, currentPlayer);
+
+      if (captures.length > 0) {
+        highlightMoves(piece, captures);
+      } else {
+        const moves = getValidMoves(row, col, currentPlayer);
+        highlightMoves(piece, moves);
+      }
+
+      selectedPiece = piece;
+    });
+
+        function aiMove() {
+      const moves = getAllPossibleMoves("black");
+      if (moves.length === 0) return;
+
+      // Prioriza capturas
+      const captureMoves = moves.filter(m => m.capture);
+      const move = captureMoves.length > 0 ? captureMoves[0] : moves[0];
+
+      const piece = getPiece(move.from[0], move.from[1]);
+      movePiece(piece, move.to[0], move.to[1]);
+    }
+
+    function getAllPossibleMoves(color) {
+      const moves = [];
+
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          if (gameState[row][col] === color) {
+            const captures = getValidCaptures(row, col, color);
+            if (captures.length > 0) {
+              captures.forEach(([r, c]) => {
+                moves.push({ from: [row, col], to: [r, c], capture: true });
+              });
+            } else {
+              const regularMoves = getValidMoves(row, col, color);
+              regularMoves.forEach(([r, c]) => {
+                moves.push({ from: [row, col], to: [r, c], capture: false });
+              });
+            }
+          }
+        }
+      }
+
+      return moves;
+    }
+
+    function cloneGameState() {
+      return gameState.map(row => row.slice());
+    }
+
+    function simulateMove(state, fromRow, fromCol, toRow, toCol, color) {
+      const newState = cloneGameState();
+      newState[fromRow][fromCol] = null;
+      newState[toRow][toCol] = color;
+
+      if (Math.abs(toRow - fromRow) === 2) {
+        const midRow = (fromRow + toRow) / 2;
+        const midCol = (fromCol + toCol) / 2;
+        newState[midRow][midCol] = null;
+      }
+
+      return newState;
+    }
+
+    // Inicializa o jogo
+    createBoard();
+    placePieces();
   </script>
 </body>
 </html>
